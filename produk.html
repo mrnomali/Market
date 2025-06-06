@@ -1,0 +1,1544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WarzCS Store</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-storage-compat.js"></script>
+    <style>
+        :root {
+            --primary: #4361ee;
+            --secondary: #3f37c9;
+            --accent: #4895ef;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --success: #4cc9f0;
+            --danger: #f72585;
+            --warning: #f8961e;
+            --info: #43aa8b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            transition: all 0.3s ease;
+        }
+
+        body {
+            background-color: #f5f5f5;
+            color: var(--dark);
+            overflow-x: hidden;
+        }
+
+        /* Loading Animation */
+        .loading-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 9999;
+            backdrop-filter: blur(5px);
+        }
+
+        .loading-logo {
+            font-size: 4rem;
+            font-weight: bold;
+            color: var(--primary);
+            margin-bottom: 2rem;
+            text-shadow: 0 0 10px rgba(67, 97, 238, 0.5);
+            animation: pulse 2s infinite;
+        }
+
+        .loading-circle {
+            width: 100px;
+            height: 100px;
+            position: relative;
+        }
+
+        .loading-circle::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: 5px solid transparent;
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .loading-circle::after {
+            content: '';
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            width: 80px;
+            height: 80px;
+            border: 5px solid transparent;
+            border-bottom-color: var(--accent);
+            border-radius: 50%;
+            animation: spinReverse 1.5s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes spinReverse {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(-360deg); }
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Header Styles */
+        header {
+            background-color: white;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(5px);
+            background-color: rgba(255, 255, 255, 0.9);
+        }
+
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .profile-section {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .profile-pic {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--primary);
+            box-shadow: 0 0 10px rgba(67, 97, 238, 0.3);
+        }
+
+        .profile-name {
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .menu-toggle {
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--dark);
+        }
+
+        /* Sidebar Menu */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            right: -300px;
+            width: 300px;
+            height: 100%;
+            background-color: white;
+            box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 101;
+            transition: right 0.3s ease;
+            backdrop-filter: blur(5px);
+            background-color: rgba(255, 255, 255, 0.95);
+        }
+
+        .sidebar.open {
+            right: 0;
+        }
+
+        .sidebar-header {
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #eee;
+        }
+
+        .sidebar-title {
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .close-sidebar {
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--dark);
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 1rem;
+        }
+
+        .sidebar-menu li {
+            margin-bottom: 1rem;
+        }
+
+        .sidebar-menu a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: var(--dark);
+            padding: 0.5rem;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-menu a:hover {
+            background-color: var(--primary);
+            color: white;
+            transform: translateX(5px);
+        }
+
+        .sidebar-menu i {
+            width: 20px;
+            text-align: center;
+        }
+
+        /* Search Section */
+        .search-section {
+            padding: 1rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .search-container {
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border: 1px solid #ddd;
+            border-radius: 30px;
+            font-size: 1rem;
+            outline: none;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+        }
+
+        .search-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 2px 15px rgba(67, 97, 238, 0.2);
+        }
+
+        .search-icon {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #aaa;
+        }
+
+        /* Products Grid */
+        .products-section {
+            padding: 1rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .product-card {
+            background-color: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .product-image-container {
+            position: relative;
+            overflow: hidden;
+            height: 200px;
+        }
+
+        .product-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s ease;
+        }
+
+        .product-card:hover .product-image {
+            transform: scale(1.05);
+        }
+
+        .product-info {
+            padding: 1rem;
+        }
+
+        .product-name {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--dark);
+        }
+
+        .product-description {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .product-price {
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 1rem;
+        }
+
+        .whatsapp-button {
+            display: block;
+            width: 100%;
+            padding: 0.6rem;
+            background-color: #25D366;
+            color: white;
+            text-align: center;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .whatsapp-button:hover {
+            background-color: #128C7E;
+            transform: translateY(-2px);
+            box-shadow: 0 3px 10px rgba(18, 140, 126, 0.3);
+        }
+
+        /* Admin Modal */
+        .admin-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 102;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+
+        .admin-modal.open {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .admin-container {
+            background-color: white;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+            transform: translateY(-20px);
+            transition: all 0.3s ease;
+        }
+
+        .admin-modal.open .admin-container {
+            transform: translateY(0);
+        }
+
+        .admin-header {
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #eee;
+            position: sticky;
+            top: 0;
+            background-color: white;
+            z-index: 1;
+        }
+
+        .admin-title {
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .close-admin {
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--dark);
+        }
+
+        .admin-content {
+            padding: 1rem;
+        }
+
+        .pin-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .pin-input {
+            padding: 0.8rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        .pin-input:focus {
+            border-color: var(--primary);
+        }
+
+        .submit-pin {
+            padding: 0.8rem;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .submit-pin:hover {
+            background-color: var(--secondary);
+        }
+
+        .admin-panel {
+            display: none;
+        }
+
+        .admin-tabs {
+            display: flex;
+            border-bottom: 1px solid #eee;
+            margin-bottom: 1rem;
+        }
+
+        .admin-tab {
+            padding: 0.8rem 1.5rem;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .admin-tab.active {
+            border-bottom: 2px solid var(--primary);
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .admin-tab:hover:not(.active) {
+            background-color: #f5f5f5;
+        }
+
+        .products-list {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .products-list th, .products-list td {
+            padding: 0.8rem;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        .products-list th {
+            background-color: #f5f5f5;
+            font-weight: 600;
+        }
+
+        .products-list tr:hover {
+            background-color: #f9f9f9;
+        }
+
+        .action-button {
+            padding: 0.3rem 0.6rem;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-right: 0.3rem;
+        }
+
+        .edit-button {
+            background-color: var(--warning);
+            color: white;
+        }
+
+        .delete-button {
+            background-color: var(--danger);
+            color: white;
+        }
+
+        .toggle-button {
+            background-color: var(--info);
+            color: white;
+        }
+
+        .action-button:hover {
+            opacity: 0.8;
+            transform: translateY(-2px);
+        }
+
+        .add-product-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .form-label {
+            font-weight: 600;
+        }
+
+        .form-input, .form-textarea {
+            padding: 0.8rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        .form-textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .form-input:focus, .form-textarea:focus {
+            border-color: var(--primary);
+        }
+
+        .image-upload-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .image-preview-container {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .image-preview {
+            width: 100px;
+            height: 100px;
+            border-radius: 5px;
+            object-fit: cover;
+            border: 1px dashed #ddd;
+            position: relative;
+        }
+
+        .remove-image {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            background-color: var(--danger);
+            color: white;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 0.7rem;
+            cursor: pointer;
+        }
+
+        .add-image-button {
+            padding: 0.8rem;
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .add-image-button:hover {
+            background-color: var(--primary);
+        }
+
+        .submit-product {
+            padding: 0.8rem;
+            background-color: var(--success);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .submit-product:hover {
+            background-color: #3aa8d8;
+        }
+
+        /* Product Detail Modal */
+        .product-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 102;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+
+        .product-modal.open {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .product-detail-container {
+            background-color: white;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+            transform: scale(0.9);
+            transition: all 0.3s ease;
+        }
+
+        .product-modal.open .product-detail-container {
+            transform: scale(1);
+        }
+
+        .product-detail-header {
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #eee;
+            position: sticky;
+            top: 0;
+            background-color: white;
+            z-index: 1;
+        }
+
+        .product-detail-title {
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .close-product {
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--dark);
+        }
+
+        .product-detail-content {
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .product-detail-images {
+            position: relative;
+            height: 300px;
+            overflow: hidden;
+            border-radius: 10px;
+        }
+
+        .product-detail-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: opacity 0.5s ease;
+        }
+
+        .product-detail-nav {
+            position: absolute;
+            top: 50%;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 1rem;
+            transform: translateY(-50%);
+        }
+
+        .product-detail-nav-button {
+            background-color: rgba(255, 255, 255, 0.7);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .product-detail-nav-button:hover {
+            background-color: white;
+            transform: scale(1.1);
+        }
+
+        .product-detail-thumbnails {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .product-detail-thumbnail {
+            width: 60px;
+            height: 60px;
+            border-radius: 5px;
+            object-fit: cover;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .product-detail-thumbnail.active {
+            border-color: var(--primary);
+        }
+
+        .product-detail-info {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .product-detail-name {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--dark);
+        }
+
+        .product-detail-price {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .product-detail-description {
+            color: #666;
+            line-height: 1.6;
+        }
+
+        /* Responsive Styles */
+        @media (max-width: 768px) {
+            .products-grid {
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            }
+
+            .sidebar {
+                width: 250px;
+            }
+
+            .product-detail-container {
+                width: 95%;
+            }
+
+            .product-detail-images {
+                height: 250px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .products-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .profile-name {
+                display: none;
+            }
+
+            .product-detail-content {
+                flex-direction: column;
+            }
+
+            .product-detail-images {
+                height: 200px;
+            }
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease forwards;
+        }
+
+        .slide-up {
+            animation: slideUp 0.5s ease forwards;
+        }
+
+        /* Blur effects */
+        .blur-effect {
+            filter: blur(2px);
+            transition: filter 0.3s ease;
+        }
+
+        .blur-effect:hover {
+            filter: blur(0);
+        }
+
+        /* Stroke effect */
+        .stroke-text {
+            color: transparent;
+            -webkit-text-stroke: 1px var(--primary);
+            text-stroke: 1px var(--primary);
+        }
+
+        /* Smooth transitions */
+        .smooth-transition {
+            transition: all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div class="loading-container">
+        <div class="loading-logo">W</div>
+        <div class="loading-circle"></div>
+    </div>
+
+    <!-- Header -->
+    <header>
+        <div class="header-container">
+            <div class="profile-section">
+                <img src="https://via.placeholder.com/150" alt="Profile" class="profile-pic">
+                <span class="profile-name">WarzCS Store</span>
+            </div>
+            <div class="menu-toggle" id="menuToggle">
+                <i class="fas fa-bars"></i>
+            </div>
+        </div>
+    </header>
+
+    <!-- Sidebar Menu -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-title">Menu</div>
+            <div class="close-sidebar" id="closeSidebar">
+                <i class="fas fa-times"></i>
+            </div>
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="#"><i class="fas fa-home"></i> Home</a></li>
+            <li><a href="#" id="adminLink"><i class="fas fa-user-cog"></i> Admin</a></li>
+            <li><a href="https://wa.me/6282130858301"><i class="fab fa-whatsapp"></i> WhatsApp Support</a></li>
+            <li><a href="mailto:warzcs@gmail.com"><i class="fas fa-envelope"></i> Email Support</a></li>
+        </ul>
+    </div>
+
+    <!-- Search Section -->
+    <section class="search-section">
+        <div class="search-container">
+            <input type="text" class="search-input" placeholder="Cari produk...">
+            <i class="fas fa-search search-icon"></i>
+        </div>
+    </section>
+
+    <!-- Products Section -->
+    <section class="products-section">
+        <h2>Produk Kami</h2>
+        <div class="products-grid" id="productsGrid">
+            <!-- Products will be loaded here -->
+        </div>
+    </section>
+
+    <!-- Admin Modal -->
+    <div class="admin-modal" id="adminModal">
+        <div class="admin-container">
+            <div class="admin-header">
+                <div class="admin-title">Admin Panel</div>
+                <div class="close-admin" id="closeAdmin">
+                    <i class="fas fa-times"></i>
+                </div>
+            </div>
+            <div class="admin-content">
+                <div id="pinForm">
+                    <h3>Masukkan PIN Admin</h3>
+                    <form class="pin-form" id="adminPinForm">
+                        <input type="password" class="pin-input" placeholder="PIN" required>
+                        <button type="submit" class="submit-pin">Masuk</button>
+                    </form>
+                </div>
+                <div class="admin-panel" id="adminPanel">
+                    <div class="admin-tabs">
+                        <div class="admin-tab active" data-tab="products">Daftar Produk</div>
+                        <div class="admin-tab" data-tab="add">Tambah Produk</div>
+                    </div>
+                    <div class="tab-content" id="productsTab">
+                        <table class="products-list">
+                            <thead>
+                                <tr>
+                                    <th>Nama</th>
+                                    <th>Harga</th>
+                                    <th>Status</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminProductsList">
+                                <!-- Admin products list will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="tab-content" id="addTab" style="display: none;">
+                        <form class="add-product-form" id="addProductForm">
+                            <div class="form-group">
+                                <label class="form-label">Nama Produk</label>
+                                <input type="text" class="form-input" id="productName" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Harga</label>
+                                <input type="number" class="form-input" id="productPrice" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Deskripsi</label>
+                                <textarea class="form-textarea" id="productDescription" required></textarea>
+                            </div>
+                            <div class="form-group image-upload-container">
+                                <label class="form-label">Gambar Produk</label>
+                                <div class="image-preview-container" id="imagePreviewContainer">
+                                    <!-- Image previews will be added here -->
+                                </div>
+                                <button type="button" class="add-image-button" id="addImageButton">
+                                    <i class="fas fa-plus"></i> Tambah Gambar
+                                </button>
+                                <input type="file" id="imageUpload" accept="image/*" multiple style="display: none;">
+                            </div>
+                            <button type="submit" class="submit-product">Simpan Produk</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Product Detail Modal -->
+    <div class="product-modal" id="productModal">
+        <div class="product-detail-container">
+            <div class="product-detail-header">
+                <div class="product-detail-title">Detail Produk</div>
+                <div class="close-product" id="closeProduct">
+                    <i class="fas fa-times"></i>
+                </div>
+            </div>
+            <div class="product-detail-content" id="productDetailContent">
+                <!-- Product details will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAnuc-z8Qz46G4WWSajmOVd3i5NQCipSpY",
+            authDomain: "projek-new-a81a1.firebaseapp.com",
+            projectId: "projek-new-a81a1",
+            storageBucket: "projek-new-a81a1.firebasestorage.app",
+            messagingSenderId: "557947147785",
+            appId: "1:557947147785:web:1525537f76e59b2004cad8",
+            measurementId: "G-PQQ6STLZS1"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const storage = firebase.storage();
+
+        // DOM Elements
+        const loadingContainer = document.querySelector('.loading-container');
+        const menuToggle = document.getElementById('menuToggle');
+        const sidebar = document.getElementById('sidebar');
+        const closeSidebar = document.getElementById('closeSidebar');
+        const adminLink = document.getElementById('adminLink');
+        const adminModal = document.getElementById('adminModal');
+        const closeAdmin = document.getElementById('closeAdmin');
+        const adminPinForm = document.getElementById('adminPinForm');
+        const pinInput = document.querySelector('.pin-input');
+        const adminPanel = document.getElementById('adminPanel');
+        const adminTabs = document.querySelectorAll('.admin-tab');
+        const productsTab = document.getElementById('productsTab');
+        const addTab = document.getElementById('addTab');
+        const adminProductsList = document.getElementById('adminProductsList');
+        const addProductForm = document.getElementById('addProductForm');
+        const addImageButton = document.getElementById('addImageButton');
+        const imageUpload = document.getElementById('imageUpload');
+        const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+        const productsGrid = document.getElementById('productsGrid');
+        const productModal = document.getElementById('productModal');
+        const closeProduct = document.getElementById('closeProduct');
+        const productDetailContent = document.getElementById('productDetailContent');
+        const searchInput = document.querySelector('.search-input');
+
+        // Global variables
+        let products = [];
+        let adminImages = [];
+        let currentProductIndex = 0;
+
+        // Simulate loading
+        setTimeout(() => {
+            loadingContainer.style.opacity = '0';
+            loadingContainer.style.visibility = 'hidden';
+            document.body.style.overflow = 'auto';
+        }, 2000);
+
+        // Toggle sidebar
+        menuToggle.addEventListener('click', () => {
+            sidebar.classList.add('open');
+        });
+
+        closeSidebar.addEventListener('click', () => {
+            sidebar.classList.remove('open');
+        });
+
+        // Admin panel
+        adminLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            adminModal.classList.add('open');
+            document.body.style.overflow = 'hidden';
+        });
+
+        closeAdmin.addEventListener('click', () => {
+            adminModal.classList.remove('open');
+            document.body.style.overflow = 'auto';
+        });
+
+        // Admin PIN verification
+        adminPinForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const pin = pinInput.value;
+            
+            if (pin === '20903') {
+                document.getElementById('pinForm').style.display = 'none';
+                adminPanel.style.display = 'block';
+                loadAdminProducts();
+            } else {
+                alert('PIN salah!');
+                pinInput.value = '';
+            }
+        });
+
+        // Admin tabs
+        adminTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                adminTabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                if (tab.dataset.tab === 'products') {
+                    productsTab.style.display = 'block';
+                    addTab.style.display = 'none';
+                } else {
+                    productsTab.style.display = 'none';
+                    addTab.style.display = 'block';
+                }
+            });
+        });
+
+        // Add image button
+        addImageButton.addEventListener('click', () => {
+            imageUpload.click();
+        });
+
+        imageUpload.addEventListener('change', (e) => {
+            const files = e.target.files;
+            
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const reader = new FileReader();
+                
+                reader.onload = (e) => {
+                    const imagePreview = document.createElement('div');
+                    imagePreview.className = 'image-preview-wrapper';
+                    imagePreview.innerHTML = `
+                        <img src="${e.target.result}" class="image-preview">
+                        <div class="remove-image" data-index="${adminImages.length}">
+                            <i class="fas fa-times"></i>
+                        </div>
+                    `;
+                    imagePreviewContainer.appendChild(imagePreview);
+                    
+                    adminImages.push(file);
+                    
+                    // Add remove event
+                    const removeBtn = imagePreview.querySelector('.remove-image');
+                    removeBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const index = parseInt(removeBtn.dataset.index);
+                        adminImages.splice(index, 1);
+                        imagePreview.remove();
+                        
+                        // Update indexes
+                        const removeButtons = document.querySelectorAll('.remove-image');
+                        removeButtons.forEach((btn, i) => {
+                            btn.dataset.index = i;
+                        });
+                    });
+                };
+                
+                reader.readAsDataURL(file);
+            }
+            
+            // Reset input to allow selecting same files again
+            imageUpload.value = '';
+        });
+
+        // Add product form
+        addProductForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const name = document.getElementById('productName').value;
+            const price = document.getElementById('productPrice').value;
+            const description = document.getElementById('productDescription').value;
+            
+            if (adminImages.length === 0) {
+                alert('Harap tambahkan minimal 1 gambar');
+                return;
+            }
+            
+            // Upload images to storage
+            const imageUrls = [];
+            
+            for (let i = 0; i < adminImages.length; i++) {
+                const file = adminImages[i];
+                const storageRef = storage.ref(`products/${Date.now()}_${file.name}`);
+                const snapshot = await storageRef.put(file);
+                const url = await snapshot.ref.getDownloadURL();
+                imageUrls.push(url);
+            }
+            
+            // Add product to Firestore
+            await db.collection('products').add({
+                name,
+                price: parseFloat(price),
+                description,
+                images: imageUrls,
+                visible: true,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            
+            // Reset form
+            addProductForm.reset();
+            imagePreviewContainer.innerHTML = '';
+            adminImages = [];
+            
+            // Show success message
+            alert('Produk berhasil ditambahkan!');
+            
+            // Reload products
+            loadAdminProducts();
+            loadProducts();
+            
+            // Switch to products tab
+            adminTabs[0].click();
+        });
+
+        // Load admin products
+        async function loadAdminProducts() {
+            adminProductsList.innerHTML = '<tr><td colspan="4">Memuat data...</td></tr>';
+            
+            const snapshot = await db.collection('products').orderBy('createdAt', 'desc').get();
+            adminProductsList.innerHTML = '';
+            
+            if (snapshot.empty) {
+                adminProductsList.innerHTML = '<tr><td colspan="4">Tidak ada produk</td></tr>';
+                return;
+            }
+            
+            snapshot.forEach(doc => {
+                const product = doc.data();
+                const productId = doc.id;
+                
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${product.name}</td>
+                    <td>Rp${product.price.toLocaleString()}</td>
+                    <td>${product.visible ? 'Aktif' : 'Nonaktif'}</td>
+                    <td>
+                        <button class="action-button edit-button" data-id="${productId}">Edit</button>
+                        <button class="action-button delete-button" data-id="${productId}">Hapus</button>
+                        <button class="action-button toggle-button" data-id="${productId}" data-visible="${product.visible}">
+                            ${product.visible ? 'Sembunyikan' : 'Tampilkan'}
+                        </button>
+                    </td>
+                `;
+                
+                adminProductsList.appendChild(tr);
+                
+                // Add event listeners
+                tr.querySelector('.edit-button').addEventListener('click', () => editProduct(productId, product));
+                tr.querySelector('.delete-button').addEventListener('click', () => deleteProduct(productId));
+                tr.querySelector('.toggle-button').addEventListener('click', () => toggleProductVisibility(productId, !product.visible));
+            });
+        }
+
+        // Edit product
+        function editProduct(productId, product) {
+            // For simplicity, we'll just fill the add form with product data
+            document.getElementById('productName').value = product.name;
+            document.getElementById('productPrice').value = product.price;
+            document.getElementById('productDescription').value = product.description;
+            
+            // Clear existing images
+            imagePreviewContainer.innerHTML = '';
+            adminImages = [];
+            
+            // Add existing images to preview
+            product.images.forEach(imageUrl => {
+                // For existing images, we can't get the File object, so we'll just show the image
+                const imagePreview = document.createElement('div');
+                imagePreview.className = 'image-preview-wrapper';
+                imagePreview.innerHTML = `
+                    <img src="${imageUrl}" class="image-preview">
+                    <div class="remove-image" data-index="${adminImages.length}">
+                        <i class="fas fa-times"></i>
+                    </div>
+                `;
+                imagePreviewContainer.appendChild(imagePreview);
+                
+                // Since we can't get the File object, we'll push a dummy object
+                adminImages.push({ url: imageUrl });
+                
+                // Add remove event
+                const removeBtn = imagePreview.querySelector('.remove-image');
+                removeBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const index = parseInt(removeBtn.dataset.index);
+                    adminImages.splice(index, 1);
+                    imagePreview.remove();
+                    
+                    // Update indexes
+                    const removeButtons = document.querySelectorAll('.remove-image');
+                    removeButtons.forEach((btn, i) => {
+                        btn.dataset.index = i;
+                    });
+                });
+            });
+            
+            // Change form to update mode
+            addProductForm.innerHTML += `
+                <input type="hidden" id="editProductId" value="${productId}">
+                <button type="button" id="cancelEdit" class="submit-pin" style="background-color: var(--danger); margin-top: 1rem;">Batal</button>
+            `;
+            
+            // Switch to add tab
+            adminTabs[1].click();
+            
+            // Cancel edit button
+            document.getElementById('cancelEdit').addEventListener('click', () => {
+                addProductForm.reset();
+                imagePreviewContainer.innerHTML = '';
+                adminImages = [];
+                document.getElementById('editProductId')?.remove();
+                document.getElementById('cancelEdit')?.remove();
+            });
+            
+            // Update form submit
+            addProductForm.onsubmit = async (e) => {
+                e.preventDefault();
+                
+                const name = document.getElementById('productName').value;
+                const price = document.getElementById('productPrice').value;
+                const description = document.getElementById('productDescription').value;
+                const productId = document.getElementById('editProductId').value;
+                
+                // Separate existing images and new images
+                const existingImages = adminImages.filter(img => img.url).map(img => img.url);
+                const newImagesFiles = adminImages.filter(img => !img.url);
+                
+                // Upload new images
+                const newImageUrls = [];
+                
+                for (let i = 0; i < newImagesFiles.length; i++) {
+                    const file = newImagesFiles[i];
+                    const storageRef = storage.ref(`products/${Date.now()}_${file.name}`);
+                    const snapshot = await storageRef.put(file);
+                    const url = await snapshot.ref.getDownloadURL();
+                    newImageUrls.push(url);
+                }
+                
+                // Combine all images
+                const allImages = [...existingImages, ...newImageUrls];
+                
+                // Update product in Firestore
+                await db.collection('products').doc(productId).update({
+                    name,
+                    price: parseFloat(price),
+                    description,
+                    images: allImages
+                });
+                
+                // Reset form
+                addProductForm.reset();
+                imagePreviewContainer.innerHTML = '';
+                adminImages = [];
+                document.getElementById('editProductId')?.remove();
+                document.getElementById('cancelEdit')?.remove();
+                
+                // Restore original form submit
+                addProductForm.onsubmit = addProductForm.originalSubmit;
+                
+                // Show success message
+                alert('Produk berhasil diperbarui!');
+                
+                // Reload products
+                loadAdminProducts();
+                loadProducts();
+                
+                // Switch to products tab
+                adminTabs[0].click();
+            };
+            
+            // Save original submit function
+            addProductForm.originalSubmit = addProductForm.onsubmit;
+        }
+
+        // Delete product
+        async function deleteProduct(productId) {
+            if (confirm('Apakah Anda yakin ingin menghapus produk ini?')) {
+                await db.collection('products').doc(productId).delete();
+                loadAdminProducts();
+                loadProducts();
+                alert('Produk berhasil dihapus!');
+            }
+        }
+
+        // Toggle product visibility
+        async function toggleProductVisibility(productId, visible) {
+            await db.collection('products').doc(productId).update({
+                visible
+            });
+            loadAdminProducts();
+            loadProducts();
+        }
+
+        // Load products for customers
+        async function loadProducts() {
+            productsGrid.innerHTML = '<div class="product-card">Memuat produk...</div>';
+            
+            const snapshot = await db.collection('products').where('visible', '==', true).orderBy('createdAt', 'desc').get();
+            products = [];
+            productsGrid.innerHTML = '';
+            
+            if (snapshot.empty) {
+                productsGrid.innerHTML = '<div class="product-card">Tidak ada produk tersedia</div>';
+                return;
+            }
+            
+            snapshot.forEach(doc => {
+                const product = doc.data();
+                product.id = doc.id;
+                products.push(product);
+                
+                const productCard = document.createElement('div');
+                productCard.className = 'product-card fade-in';
+                productCard.innerHTML = `
+                    <div class="product-image-container">
+                        <img src="${product.images[0]}" alt="${product.name}" class="product-image">
+                    </div>
+                    <div class="product-info">
+                        <h3 class="product-name">${product.name}</h3>
+                        <p class="product-description">${product.description}</p>
+                        <div class="product-price">Rp${product.price.toLocaleString()}</div>
+                        <a href="https://wa.me/6282130858301?text=Saya%20tertarik%20dengan%20produk%20${encodeURIComponent(product.name)}%20dengan%20harga%20Rp${product.price.toLocaleString()}%20di%20WarzCS%20Store" class="whatsapp-button">
+                            <i class="fab fa-whatsapp"></i> Pesan Sekarang
+                        </a>
+                    </div>
+                `;
+                
+                productsGrid.appendChild(productCard);
+                
+                // Add click event to show product detail
+                productCard.addEventListener('click', () => {
+                    showProductDetail(products.findIndex(p => p.id === doc.id));
+                });
+            });
+        }
+
+        // Show product detail
+        function showProductDetail(index) {
+            currentProductIndex = index;
+            const product = products[index];
+            
+            productDetailContent.innerHTML = `
+                <div class="product-detail-images">
+                    <img src="${product.images[0]}" class="product-detail-image active" id="mainImage">
+                    <div class="product-detail-nav">
+                        <div class="product-detail-nav-button" id="prevImage">
+                            <i class="fas fa-chevron-left"></i>
+                        </div>
+                        <div class="product-detail-nav-button" id="nextImage">
+                            <i class="fas fa-chevron-right"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="product-detail-thumbnails" id="thumbnails">
+                    ${product.images.map((img, i) => `
+                        <img src="${img}" class="product-detail-thumbnail ${i === 0 ? 'active' : ''}" data-index="${i}">
+                    `).join('')}
+                </div>
+                <div class="product-detail-info">
+                    <h1 class="product-detail-name">${product.name}</h1>
+                    <div class="product-detail-price">Rp${product.price.toLocaleString()}</div>
+                    <p class="product-detail-description">${product.description}</p>
+                    <a href="https://wa.me/6282130858301?text=Saya%20tertarik%20dengan%20produk%20${encodeURIComponent(product.name)}%20dengan%20harga%20Rp${product.price.toLocaleString()}%20di%20WarzCS%20Store" class="whatsapp-button" style="margin-top: 1rem;">
+                        <i class="fab fa-whatsapp"></i> Pesan Sekarang
+                    </a>
+                </div>
+            `;
+            
+            // Add event listeners for image navigation
+            const mainImage = document.getElementById('mainImage');
+            const prevImage = document.getElementById('prevImage');
+            const nextImage = document.getElementById('nextImage');
+            const thumbnails = document.getElementById('thumbnails').querySelectorAll('.product-detail-thumbnail');
+            
+            let currentImageIndex = 0;
+            
+            function showImage(index) {
+                currentImageIndex = index;
+                mainImage.src = product.images[index];
+                
+                // Update active thumbnail
+                thumbnails.forEach((thumb, i) => {
+                    if (i === index) {
+                        thumb.classList.add('active');
+                    } else {
+                        thumb.classList.remove('active');
+                    }
+                });
+            }
+            
+            prevImage.addEventListener('click', (e) => {
+                e.stopPropagation();
+                currentImageIndex = (currentImageIndex - 1 + product.images.length) % product.images.length;
+                showImage(currentImageIndex);
+            });
+            
+            nextImage.addEventListener('click', (e) => {
+                e.stopPropagation();
+                currentImageIndex = (currentImageIndex + 1) % product.images.length;
+                showImage(currentImageIndex);
+            });
+            
+            thumbnails.forEach((thumb, i) => {
+                thumb.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    showImage(i);
+                });
+            });
+            
+            // Open modal
+            productModal.classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+
+        // Close product detail
+        closeProduct.addEventListener('click', () => {
+            productModal.classList.remove('open');
+            document.body.style.overflow = 'auto';
+        });
+
+        // Search functionality
+        searchInput.addEventListener('input', () => {
+            const searchTerm = searchInput.value.toLowerCase();
+            const productCards = document.querySelectorAll('.product-card');
+            
+            productCards.forEach(card => {
+                const name = card.querySelector('.product-name').textContent.toLowerCase();
+                const description = card.querySelector('.product-description').textContent.toLowerCase();
+                
+                if (name.includes(searchTerm) || description.includes(searchTerm)) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+
+        // Close modals when clicking outside
+        window.addEventListener('click', (e) => {
+            if (e.target === adminModal) {
+                adminModal.classList.remove('open');
+                document.body.style.overflow = 'auto';
+            }
+            
+            if (e.target === productModal) {
+                productModal.classList.remove('open');
+                document.body.style.overflow = 'auto';
+            }
+        });
+
+        // Initialize
+        loadProducts();
+    </script>
+</body>
+</html>
